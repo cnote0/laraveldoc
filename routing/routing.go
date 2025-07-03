@@ -1,8 +1,82 @@
-package laraveldoc
+// Package routing 提供 Laravel 风格的路由系统协议定义
+//
+// 本包定义了完整的HTTP路由系统，包括路由注册、分发、中间件处理、
+// 请求响应管理、URL生成等功能。设计基于 Laravel 的路由系统。
+//
+// 主要特性：
+// - RESTful 路由支持
+// - 路由分组和中间件
+// - 路由参数和约束
+// - 子域名路由
+// - 路由缓存和优化
+// - 请求和响应处理
+// - URL 生成和重定向
+//
+// 使用示例：
+//
+//	// 创建路由器
+//	router := routing.NewRouter()
+//
+//	// 基础路由
+//	router.Get("/users", userController.Index)
+//	router.Post("/users", userController.Create)
+//	router.Get("/users/{id}", userController.Show)
+//	router.Put("/users/{id}", userController.Update)
+//	router.Delete("/users/{id}", userController.Delete)
+//
+//	// 路由分组
+//	api := router.Group("/api/v1")
+//	api.Middleware("auth", "throttle")
+//	api.Get("/profile", profileController.Show)
+//
+//	// 子域名路由
+//	admin := router.Domain("admin.example.com")
+//	admin.Get("/dashboard", adminController.Dashboard)
+//
+//	// 资源路由
+//	router.Resource("/posts", postController)
+//
+//	// 路由分发
+//	response, err := router.Dispatch(request)
+//
+//	// URL 生成
+//	urlGenerator := routing.NewUrlGenerator(router)
+//	userUrl := urlGenerator.Route("user.show", map[string]interface{}{"id": 123})
+
+package routing
 
 import (
 	"context"
 )
+
+// Router 路由器接口
+//
+// Router 是整个路由系统的核心，负责路由的注册、匹配和分发。
+// 它支持多种HTTP方法、路由分组、中间件、参数约束等功能。
+//
+// 使用示例：
+//
+//	// 创建路由器实例
+//	router := NewRouter()
+//
+//	// 注册基础路由
+//	router.Get("/", homeHandler)
+//	router.Post("/users", createUserHandler)
+//	router.Get("/users/{id:[0-9]+}", getUserHandler)
+//
+//	// 路由分组
+//	api := router.Group("/api")
+//	api.Middleware("auth")
+//	api.Get("/profile", profileHandler)
+//
+//	// 资源路由
+//	router.Resource("/posts", postsController)
+//
+//	// 处理请求
+//	response, err := router.Dispatch(request)
+//	if err != nil {
+//		// 处理错误
+//	}
 
 // Router 路由器接口
 type Router interface {

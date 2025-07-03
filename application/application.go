@@ -1,79 +1,351 @@
-package laraveldoc
+// Package application 提供 Laravel 风格的应用程序核心协议定义
+//
+// 本包定义了应用程序的核心功能，包括生命周期管理、服务容器集成、
+// 事件系统、配置管理、日志系统、缓存系统和命令行接口等。
+//
+// 主要特性：
+// - 应用程序生命周期管理
+// - 与容器系统的深度集成
+// - 事件驱动架构支持
+// - 多通道日志系统
+// - 多驱动缓存系统
+// - 完整的命令行工具支持
+// - HTTP 和控制台内核管理
+//
+// 使用示例：
+//
+//	// 创建应用实例
+//	app := application.New()
+//
+//	// 注册服务提供者
+//	app.Register(&DatabaseServiceProvider{})
+//	app.Register(&CacheServiceProvider{})
+//
+//	// 引导应用
+//	err := app.Boot()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	// 处理HTTP请求
+//	kernel := app.Make("http.kernel").(application.Kernel)
+//	response := kernel.Handle(request)
+//
+//	// 执行命令行
+//	console := app.Make("console.kernel").(application.ConsoleKernel)
+//	code := console.HandleConsole(input, output)
+//
+//	// 事件系统
+//	events := app.Make("events").(application.EventDispatcher)
+//	events.Listen("user.created", userCreatedListener)
+//	events.Dispatch("user.created", user)
+//
+//	// 配置管理
+//	config := app.Make("config").(application.Config)
+//	dbHost := config.Get("database.host", "localhost")
+//
+//	// 日志系统
+//	logger := app.Make("log").(application.LogManager)
+//	logger.Info("Application started")
+//	logger.Channel("daily").Error("Something went wrong", err)
+//
+//	// 缓存系统
+//	cache := app.Make("cache").(application.CacheManager)
+//	cache.Put("key", "value", time.Hour)
+//	value := cache.Get("key", "default")
+package application
 
 import (
 	"context"
 	"time"
+
+	"github.com/cnote0/laraveldoc/container"
 )
 
 // Application 应用程序接口
-// 定义应用程序的核心功能和生命周期管理
+//
+// Application 是整个应用程序的核心，它继承了 Container 接口，
+// 提供了依赖注入容器的所有功能，同时添加了应用程序特有的功能。
+//
+// 使用示例：
+//
+//	// 创建应用实例
+//	app := NewApplication()
+//
+//	// 设置基本信息
+//	app.SetDebug(true)
+//	app.SetNamespace("MyApp")
+//
+//	// 注册服务提供者
+//	provider := &DatabaseServiceProvider{}
+//	app.RegisterProvider(provider, false)
+//
+//	// 引导应用
+//	err := app.Bootstrap()
+//	if err != nil {
+//		log.Fatal("Failed to bootstrap application:", err)
+//	}
+//
+//	// 启动所有服务提供者
+//	err = app.BootProviders()
+//	if err != nil {
+//		log.Fatal("Failed to boot providers:", err)
+//	}
+//
+//	// 使用应用作为容器
+//	db, err := app.Make("database")
+//	config := app.MustMake("config").(Config)
+//
+//	// 环境检查
+//	if app.IsProduction() {
+//		// 生产环境逻辑
+//	}
+//
+//	// 路径管理
+//	configPath := app.ConfigPath("database.json")
+//	storagePath := app.StoragePath("logs", "app.log")
 type Application interface {
-	Container // 继承容器接口
+	container.Container // 继承容器接口
 
 	// Version 获取应用版本
+	//
+	// 返回应用程序的版本号，通常用于调试和监控。
+	//
+	// 示例：
+	//   version := app.Version() // "1.0.0"
+	//   logger.Info("Application version: " + version)
 	Version() string
 
 	// Environment 获取当前环境
+	//
+	// 返回应用程序当前运行的环境名称。
+	//
+	// 示例：
+	//   env := app.Environment() // "production", "development", "testing"
+	//   if env == "development" {
+	//       // 开发环境特定逻辑
+	//   }
 	Environment() string
 
 	// IsEnvironment 检查是否为指定环境
+	//
+	// 检查当前环境是否匹配指定的环境名称之一。
+	//
+	// 示例：
+	//   if app.IsEnvironment("production", "staging") {
+	//       // 生产或预发布环境逻辑
+	//   }
 	IsEnvironment(environments ...string) bool
 
 	// IsProduction 是否为生产环境
+	//
+	// 快捷方法检查是否为生产环境。
+	//
+	// 示例：
+	//   if app.IsProduction() {
+	//       // 禁用调试信息
+	//       // 启用缓存
+	//       // 使用生产数据库
+	//   }
 	IsProduction() bool
 
 	// IsDevelopment 是否为开发环境
+	//
+	// 快捷方法检查是否为开发环境。
+	//
+	// 示例：
+	//   if app.IsDevelopment() {
+	//       // 启用详细日志
+	//       // 禁用缓存
+	//       // 使用测试数据库
+	//   }
 	IsDevelopment() bool
 
 	// IsDebug 是否开启调试模式
+	//
+	// 检查应用程序是否处于调试模式。
+	//
+	// 示例：
+	//   if app.IsDebug() {
+	//       // 显示详细错误信息
+	//       // 启用性能分析
+	//   }
 	IsDebug() bool
 
 	// SetDebug 设置调试模式
+	//
+	// 启用或禁用调试模式。
+	//
+	// 示例：
+	//   app.SetDebug(true)  // 启用调试
+	//   app.SetDebug(false) // 禁用调试
 	SetDebug(debug bool)
 
 	// BasePath 获取应用根路径
+	//
+	// 返回应用程序的根目录路径，可以拼接子路径。
+	//
+	// 示例：
+	//   rootPath := app.BasePath()                    // "/var/www/myapp"
+	//   configFile := app.BasePath("config", "app.json") // "/var/www/myapp/config/app.json"
 	BasePath(path ...string) string
 
 	// ConfigPath 获取配置路径
+	//
+	// 返回配置文件的路径。
+	//
+	// 示例：
+	//   configDir := app.ConfigPath()                 // "/var/www/myapp/config"
+	//   dbConfig := app.ConfigPath("database.json")  // "/var/www/myapp/config/database.json"
 	ConfigPath(path ...string) string
 
 	// StoragePath 获取存储路径
+	//
+	// 返回存储目录的路径，用于日志、缓存、会话等文件。
+	//
+	// 示例：
+	//   storageDir := app.StoragePath()              // "/var/www/myapp/storage"
+	//   logFile := app.StoragePath("logs", "app.log") // "/var/www/myapp/storage/logs/app.log"
 	StoragePath(path ...string) string
 
 	// DatabasePath 获取数据库路径
+	//
+	// 返回数据库文件的路径（主要用于SQLite等文件数据库）。
+	//
+	// 示例：
+	//   dbDir := app.DatabasePath()                   // "/var/www/myapp/database"
+	//   sqliteFile := app.DatabasePath("app.sqlite") // "/var/www/myapp/database/app.sqlite"
 	DatabasePath(path ...string) string
 
 	// ResourcePath 获取资源路径
+	//
+	// 返回资源文件的路径，如视图模板、语言文件等。
+	//
+	// 示例：
+	//   resourceDir := app.ResourcePath()                    // "/var/www/myapp/resources"
+	//   viewFile := app.ResourcePath("views", "user.html")  // "/var/www/myapp/resources/views/user.html"
 	ResourcePath(path ...string) string
 
 	// PublicPath 获取公共路径
+	//
+	// 返回公共文件的路径，如静态资源、上传文件等。
+	//
+	// 示例：
+	//   publicDir := app.PublicPath()                      // "/var/www/myapp/public"
+	//   cssFile := app.PublicPath("css", "app.css")       // "/var/www/myapp/public/css/app.css"
+	//   uploadFile := app.PublicPath("uploads", "image.jpg") // "/var/www/myapp/public/uploads/image.jpg"
 	PublicPath(path ...string) string
 
 	// Bootstrap 启动应用程序
+	//
+	// 执行应用程序的启动流程，包括加载配置、注册服务等。
+	//
+	// 示例：
+	//   err := app.Bootstrap()
+	//   if err != nil {
+	//       log.Fatal("Failed to bootstrap application:", err)
+	//   }
 	Bootstrap() error
 
 	// BootstrapWith 使用指定的引导程序启动
+	//
+	// 使用自定义的引导程序序列启动应用程序。
+	//
+	// 示例：
+	//   bootstrappers := []Bootstrapper{
+	//       &LoadConfiguration{},
+	//       &SetupDatabase{},
+	//       &RegisterRoutes{},
+	//   }
+	//   err := app.BootstrapWith(bootstrappers)
 	BootstrapWith(bootstrappers []Bootstrapper) error
 
 	// RegisterConfiguredProviders 注册配置的服务提供者
+	//
+	// 根据配置文件注册所有配置的服务提供者。
+	//
+	// 示例：
+	//   // 会读取配置文件中的 providers 列表并注册
+	//   err := app.RegisterConfiguredProviders()
+	//   if err != nil {
+	//       log.Fatal("Failed to register providers:", err)
+	//   }
 	RegisterConfiguredProviders() error
 
 	// RegisterProvider 注册服务提供者
-	RegisterProvider(provider ServiceProvider, force bool) ServiceProvider
+	//
+	// 注册一个服务提供者到应用程序中。
+	//
+	// 参数：
+	//   provider - 服务提供者实例
+	//   force    - 是否强制注册（即使已注册）
+	//
+	// 示例：
+	//   provider := &DatabaseServiceProvider{}
+	//   registeredProvider := app.RegisterProvider(provider, false)
+	//
+	//   // 强制重新注册
+	//   app.RegisterProvider(provider, true)
+	RegisterProvider(provider container.ServiceProvider, force bool) container.ServiceProvider
 
 	// GetProviders 获取已注册的服务提供者
-	GetProviders(provider ServiceProvider) []ServiceProvider
+	//
+	// 返回指定类型的所有已注册服务提供者实例。
+	//
+	// 示例：
+	//   provider := &DatabaseServiceProvider{}
+	//   providers := app.GetProviders(provider)
+	//   for _, p := range providers {
+	//       fmt.Printf("Provider: %T\n", p)
+	//   }
+	GetProviders(provider container.ServiceProvider) []container.ServiceProvider
 
 	// BootProviders 启动所有服务提供者
+	//
+	// 调用所有已注册服务提供者的 Boot 方法。
+	//
+	// 示例：
+	//   // 确保所有提供者都已注册
+	//   err := app.RegisterConfiguredProviders()
+	//   if err != nil {
+	//       return err
+	//   }
+	//
+	//   // 启动所有提供者
+	//   err = app.BootProviders()
+	//   if err != nil {
+	//       log.Fatal("Failed to boot providers:", err)
+	//   }
 	BootProviders() error
 
 	// Terminate 终止应用程序
+	//
+	// 优雅地关闭应用程序，清理资源。
+	//
+	// 示例：
+	//   defer func() {
+	//       err := app.Terminate()
+	//       if err != nil {
+	//           log.Printf("Error terminating application: %v", err)
+	//       }
+	//   }()
 	Terminate() error
 
 	// GetNamespace 获取应用命名空间
+	//
+	// 返回应用程序的命名空间，用于类和服务的自动解析。
+	//
+	// 示例：
+	//   namespace := app.GetNamespace() // "App"
+	//   controllerClass := namespace + "\\Controllers\\UserController"
 	GetNamespace() string
 
 	// SetNamespace 设置应用命名空间
+	//
+	// 设置应用程序的命名空间。
+	//
+	// 示例：
+	//   app.SetNamespace("MyApp")
 	SetNamespace(namespace string)
 }
 
