@@ -275,6 +275,94 @@ response, err := router.Dispatch(request)
 - URL 生成和重定向
 - 请求和响应处理
 
+## 🔄 模块交互流程
+
+以下时序图展示了各个模块在典型的 HTTP 请求处理过程中的交互关系：
+
+```mermaid
+sequenceDiagram
+    participant Client as 客户端
+    participant Router as 路由系统<br/>(routing)
+    participant App as 应用程序<br/>(application)
+    participant Container as IoC容器<br/>(container)
+    participant Facade as 门面系统<br/>(facade)
+    participant DB as 数据库层<br/>(database)
+    participant Controller as 控制器
+
+    Note over Client,Controller: HTTP 请求处理流程
+    
+    Client->>Router: 1. 发送 HTTP 请求
+    Router->>Router: 2. 路由匹配和解析
+    Router->>App: 3. 获取应用实例
+    App->>Container: 4. 解析控制器依赖
+    Container->>Container: 5. 查找服务绑定
+    Container->>App: 6. 返回控制器实例
+    Router->>Controller: 7. 调用控制器方法
+    
+    Note over Controller,DB: 业务逻辑处理
+    
+    Controller->>Facade: 8. 通过门面访问服务<br/>"DB::table('users')"
+    Facade->>Container: 9. 从容器解析数据库服务
+    Container->>DB: 10. 创建/获取数据库实例
+    Container->>Facade: 11. 返回数据库实例
+    Facade->>DB: 12. 调用数据库方法
+    DB->>DB: 13. 执行 SQL 查询
+    DB->>Facade: 14. 返回查询结果
+    Facade->>Controller: 15. 返回数据
+    
+    Controller->>Router: 16. 返回响应数据
+    Router->>Client: 17. 发送 HTTP 响应
+    
+    Note over App,Container: 应用生命周期管理
+    
+    rect rgb(240, 248, 255)
+        Note over App: 应用启动流程
+        App->>Container: 注册服务提供者
+        App->>Container: 绑定服务实例
+        App->>Container: 配置依赖关系
+        App->>Facade: 注册门面
+    end
+    
+    rect rgb(255, 248, 240)
+        Note over Container: 依赖注入特性
+        Note right of Container: • 服务绑定和解析<br/>• 单例模式支持<br/>• 上下文绑定<br/>• 自动依赖注入
+    end
+    
+    rect rgb(248, 255, 248)
+        Note over Facade: 门面模式特性
+        Note right of Facade: • 静态方法调用<br/>• 实时门面创建<br/>• 测试模拟支持<br/>• 服务代理访问
+    end
+```
+
+### 交互流程说明
+
+1. **请求接收阶段 (1-3)**
+   - 客户端发送 HTTP 请求到路由系统
+   - 路由系统进行路由匹配和参数解析
+   - 获取应用程序实例
+
+2. **依赖解析阶段 (4-7)**
+   - 应用程序通过 IoC 容器解析控制器依赖
+   - 容器查找服务绑定并创建实例
+   - 返回完全注入依赖的控制器实例
+
+3. **业务处理阶段 (8-15)**
+   - 控制器通过门面系统访问底层服务
+   - 门面从容器解析具体的服务实例
+   - 执行数据库操作或其他业务逻辑
+   - 返回处理结果
+
+4. **响应返回阶段 (16-17)**
+   - 控制器返回响应数据给路由系统
+   - 路由系统将最终响应发送给客户端
+
+### 架构优势
+
+- **松耦合**：各模块通过接口交互，降低耦合度
+- **可测试性**：通过依赖注入和门面模拟轻松进行单元测试
+- **可扩展性**：通过容器绑定可以轻松替换服务实现
+- **一致性**：统一的调用模式和错误处理机制
+
 ## 🌟 Laravel 设计模式分析
 
 ### IoC 容器 (Inversion of Control)
